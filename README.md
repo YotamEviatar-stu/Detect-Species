@@ -49,7 +49,7 @@ On the test set, the two models differ by about two images. With only 7–9 test
 
 Gazelle and jackal are never confused with each other. The only real confusion is gazelle ↔ fallow deer, which look alike. No other species was ever predicted as jackal (precision 1.00).
 
-**Field data:** 2,423 frames produced 993 animal crops (from 710 frames), and 204 of them (20.5%) were rejected as uncertain. Wild boar (457) and birds (228) make up 82% of the remaining crops. **Jackal (18 crops) outnumbers gazelle (13)**. The field crops are less clean than the training crops (partial, distant or empty boxes), so these counts show relative presence, not the number of individuals.
+**Field data:** 2,423 frames produced 993 animal crops (from 710 frames), and 204 of them (20.5%) were rejected as uncertain. Of the 789 crops kept, 685 are wild boar (457) or birds (228). **Jackal (18 crops) outnumbers gazelle (13)**. The field crops are less clean than the training crops (partial, distant or empty boxes), so these counts show relative presence, not the number of individuals.
 
 ## Running
 
