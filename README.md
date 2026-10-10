@@ -1,59 +1,54 @@
-# Detect-Species — camera-trap species classification
+# Detect-Species
 
-Counts which animal species appear in a month of unlabelled camera-trap footage (May 2022), focusing on **gazelle** (prey) and **jackal** (predator).
+**Which animals pass the camera traps, and do jackals (predators) outnumber gazelles (prey)?**
 
-All the code is in [`pipeline.py`](pipeline.py) and reads top to bottom in five stages.
+![one example per species](assets/species.jpg)
 
+## How it works
+
+```mermaid
+flowchart LR
+    A[📷 2,500 labelled crops] --> B[Clean<br/>8 species kept]
+    B --> C[Split 70/15/15<br/>bursts kept together]
+    C --> D[Fine-tune YOLO<br/>+ tune 3 settings]
+    D --> E[Test once<br/>top-1 96.6%]
+    F[🌲 2,423 field frames] --> G[MegaDetector<br/>finds animals]
+    G --> H[993 crops]
+    E -. best model .-> I
+    H --> I[Classify]
+    I --> J{Confident?}
+    J -- yes --> K[Species count]
+    J -- no --> L[uncertain]
 ```
-labelled crops ──► 1. clean ──► 2. split 70/15/15 ──► 3. train + tune YOLO classifier ──► 4. test once
-                                                                  │
-field frames ──► 5. MegaDetector ──► animal crops ──► classify ──► reject low-confidence ──► species counts
-```
 
-## Data
+## Three problems the pipeline handles
 
-- **Training set:** 2,500 labelled animal crops in 11 classes. After cleaning, 2,137 images remain in 8 classes: cow, birds, wild boar, jackal, gazelle, porcupine, fallow deer and fox. They are split into 1,496 train, 321 validation and 320 test images.
-- **Field set:** 2,423 unlabelled full frames from May 2022.
+**1. Burst frames.** Camera traps fire several near-identical shots. If one lands in train and its twin in test, the test score is inflated. Near-duplicates are therefore kept together in one split.
 
-## Method
+![two burst frames](assets/burst.jpg)
 
-| Stage | What is done | Why |
-|---|---|---|
-| Cleaning | Drop `undefined`, `hyena` (1 image), `wolf` (9) and 9 crops that are black even after auto-contrast | Not a species, or too rare to evaluate. `fox` (47) is kept so field foxes aren't forced into `jackal`. |
-| Split | 70 / 15 / 15 per class. Near-duplicate burst frames (8×8 average hash, ≤ 5 bits apart) are kept in the same split | Prevents a burst frame in test from having a near-copy in train |
-| Model | YOLO26n-cls pretrained on ImageNet, fine-tuned for 30 epochs at 224 px with Ultralytics' default augmentation | |
-| Tuning | `batch` 8/16/32, `imgsz` 160/224/320 and `weight_decay` 0/0.0005/0.005, changed one at a time | Selection uses validation only, scored by mean(macro precision, macro recall, top-5) because classes are imbalanced |
-| Field detection | MegaDetector v5a, keeping "animal" boxes with confidence ≥ 0.2 | The classifier expects single-animal crops |
-| Rejection | A crop is marked `uncertain` when its top-1 confidence is below tau = 0.82 (5th percentile of confidence among correct validation predictions) | A softmax classifier always picks a class, even for an empty box or an animal it was never trained on |
+**2. Look-alikes.** Gazelle (top row) and fallow deer (middle row) mostly differ by the deer's spots and antlers. Jackal (bottom row) is the predator they're compared with.
+
+![gazelle, fallow deer, jackal](assets/lookalikes.jpg)
+
+**3. Animals the model was never trained on.** A classifier always picks one of its species, even for an empty box or a hyena. Crops scored below 82% confidence are set aside as `uncertain`.
 
 ## Results
 
-**Model selection (validation):** `batch_8` scored highest (macro P 0.906, macro R 0.892, top-1 0.950), mainly because it did better on the rare classes. Changing `imgsz` and `weight_decay` didn't help.
+**Test set:** 309 of 320 images correct, and gazelle is never confused with jackal.
 
-**Test set (320 images, scored once):**
+<img src="assets/confusion.png" width="480" alt="confusion matrix on the test set">
 
-| model | macro precision | macro recall | top-1 |
-|---|---|---|---|
-| baseline (batch 16) | 0.940 | 0.946 | 0.969 |
-| selected (batch 8) | 0.938 | 0.937 | 0.966 |
+**May 2022 field data:** of 993 animal crops, jackal outnumbers gazelle.
 
-On the test set, the two models differ by about two images. With only 7–9 test images in each rare class, one image moves that class's recall by 11–14 points.
-
-**Target species on test (selected model):**
-
-| true \ predicted | gazelle | fallow deer | jackal | other |
-|---|---|---|---|---|
-| gazelle (22) | **19** | 1 | 0 | 2 |
-| fallow deer (9) | 1 | **7** | 0 | 1 |
-| jackal (33) | 0 | 0 | **29** | 4 |
-
-Gazelle and jackal are never confused with each other. The only real confusion is gazelle ↔ fallow deer, which look alike. No other species was ever predicted as jackal (precision 1.00).
-
-**Field data:** 2,423 frames produced 993 animal crops (from 710 frames), and 204 of them (20.5%) were rejected as uncertain. Of the 789 crops kept, 685 are wild boar (457) or birds (228). **Jackal (18 crops) outnumbers gazelle (13)**. The field crops are less clean than the training crops (partial, distant or empty boxes), so these counts show relative presence, not the number of individuals.
-
-## Running
-
-```bash
-pip install -r requirements.txt
-python pipeline.py      # expects data/ as described at the top of pipeline.py; writes to work/
+```mermaid
+xychart-beta
+    x-axis ["jackal", "gazelle"]
+    y-axis "confident crops" 0 --> 20
+    bar [18, 13]
 ```
+
+<sub>The rest are wild boar (457), birds (228), other species (73) and uncertain (204).</sub>
+
+---
+Code: [`pipeline.py`](pipeline.py), five steps that read top to bottom. Run it with `pip install -r requirements.txt && python pipeline.py`.
