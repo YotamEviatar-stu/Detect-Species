@@ -1,6 +1,8 @@
 # Detect-Species
 
-**Which animals pass the camera traps, and do jackals (predators) outnumber gazelles (prey)?**
+## Background
+
+We were asked to train and validate an image model that identifies animal species in camera-trap photos, then use it to count which species appear in a month of new, unlabelled field footage (May 2022). The key question: do jackals (predators) outnumber gazelles (prey)?
 
 ![one example per species](assets/species.jpg)
 
